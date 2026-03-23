@@ -61,7 +61,7 @@ def engineer_features(df):
             df[col] = val
     return df
 
-# ---- 4. Sidebar: Task 2 (Assumptions) & Task 3 (Validation Toggle) ---- #
+# ---- 4. Sidebar: Assumptions & Validation ---- #
 with st.sidebar:
     st.header("Engineering Panel")
     st.info("AI Model v2.0 | TAI Engineers")
@@ -84,11 +84,10 @@ with st.sidebar:
     if validation_mode:
         st.caption("Compare AI vs. Manual calculations.")
 
-# ---- 5. Section 1: Single Ship Prediction (Task 1) ---- #
+# ---- 5. Single Ship Prediction ---- #
 st.title("Ship Power & Weight Prediction")
 st.subheader("Interactive Design Estimator")
 
-# Ship Type Preset Selector
 selected_type = st.selectbox("1. Select Ship Type (loads presets)", ["Select...", "OSV", "Tug", "Bulk Carrier", "Container"])
 defaults = PRESETS.get(selected_type, {"loa": 0.0, "breadth": 0.0, "depth": 0.0, "draft": 0.0, "speed": 0.0})
 
@@ -103,7 +102,6 @@ with col2:
     speed = st.number_input("Service Speed [kn]", value=defaults["speed"], format="%.2f")
     year_built = st.number_input("Year Built", min_value=1980, max_value=2035, value=2024)
     
-    # Task 3: Manual Input for Validation
     manual_p = 0.0
     if validation_mode:
         manual_p = st.number_input("Your Manual Power Estimate (kW)", value=0.0)
@@ -119,25 +117,22 @@ if st.button("Calculate Results"):
         if warns:
             for w in warns: st.warning(f"⚠️ {w}")
         
-        # Predict
         raw_data = pd.DataFrame([{"loa_m": loa_m, "breadth_m": breadth_m, "depth_m": depth_m, "draft_m": draft_m, "service_speed_kn": speed, "year_built": year_built, "ship_type": selected_type}])
         input_data = engineer_features(raw_data)
         
         p_val = power_model.predict(input_data)[0]
         w_val = weight_model.predict(input_data)[0]
 
-        # Display Metrics
         st.markdown("### Estimation Results")
         m_col1, m_col2, m_col3 = st.columns(3)
         m_col1.metric("Predicted Power (kW)", f"{p_val:,.2f}")
         m_col2.metric("Steel Weight (t)", f"{w_val:,.2f}")
         
-        # Task 3: Validation Logic
         if validation_mode and manual_p > 0:
             var = (abs(p_val - manual_p) / manual_p) * 100
             m_col3.metric("Variance", f"{var:.1f}%", delta=f"{p_val-manual_p:,.0f} kW", delta_color="inverse")
 
-        # Task 3: UX Polish - Incorporate Feedback Expander
+        # UX Feedback Expander
         with st.expander("📝 Provide Feedback on this Prediction"):
             st.write("Does this result align with your engineering judgment?")
             fb1, fb2 = st.columns(2)
@@ -146,7 +141,6 @@ if st.button("Calculate Results"):
             if fb2.button("Seems Off 👎"):
                 st.toast("Noted. We will review this case for model tuning.")
 
-        # Ratios
         st.write(f"**Derived Ratios:** L/B: {input_data['L_B'][0]:.2f} | B/D: {input_data['B_D'][0]:.2f} | Speed-Len: {input_data['speed_length_ratio'][0]:.2f}")
 
         # SHAP Bar Chart
@@ -164,7 +158,7 @@ if st.button("Calculate Results"):
         except:
             st.info("SHAP visualization simplified for this view.")
 
-# ---- 6. Section 2: Batch Prediction & Trends ---- #
+# ---- 6. Batch Prediction ---- #
 st.markdown("---")
 st.subheader("Batch Estimator (CSV)")
 up_file = st.file_uploader("Upload CSV Data", type=["csv"])
@@ -180,7 +174,6 @@ if up_file:
         
         st.dataframe(b_df.head(10))
         
-        # GLOBAL SHAP TRENDS (Beeswarm)
         if st.checkbox("Show Global Influence Trends (Beeswarm)"):
             with st.spinner("Analyzing dataset trends..."):
                 sample = b_proc.head(100)
