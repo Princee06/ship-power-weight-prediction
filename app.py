@@ -158,7 +158,7 @@ if st.button("Calculate Results"):
         st.markdown("---")
         st.write("**Feature Contribution (Why this prediction?)**")
         if SHAP_AVAILABLE:
-    try:
+            try:
         num_data = power_model[:-1].transform(input_data)
         explainer = shap.TreeExplainer(power_model.named_steps["model"])
         shap_v = explainer(num_data)
