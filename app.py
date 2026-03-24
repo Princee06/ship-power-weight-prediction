@@ -169,7 +169,7 @@ if st.button("Calculate Results"):
                 st.pyplot(fig, use_container_width=False)
             except:
                 st.info("SHAP visualization unavailable.")
-    else:
+        else:
             st.info("SHAP not installed in this environment.")
 
 # ---- 6. Section 2: Batch Prediction & Trends ---- #
