@@ -1,8 +1,13 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import shap
 import matplotlib.pyplot as plt
+#----OPTIONAL IMPORT SHAP----#
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except:
+    SHAP_AVAILABLE = False
 
 # ---- 0. Page Config ---- #
 st.set_page_config(page_title="Ship Power & Weight Prediction", layout="wide")
@@ -152,17 +157,20 @@ if st.button("Calculate Results"):
         # SHAP Bar Chart
         st.markdown("---")
         st.write("**Feature Contribution (Why this prediction?)**")
-        try:
-            num_data = power_model[:-1].transform(input_data)
-            explainer = shap.TreeExplainer(power_model.named_steps["model"])
-            shap_v = explainer(num_data)
-            shap_v.feature_names = power_model[:-1].get_feature_names_out()
-            fig, ax = plt.subplots(figsize=(8, 3.5))
-            shap.plots.bar(shap_v[0], max_display=8, show=False)
-            plt.tight_layout()
-            st.pyplot(fig, use_container_width=False)
-        except:
-            st.info("SHAP visualization simplified for this view.")
+        if SHAP_AVAILABLE:
+    try:
+        num_data = power_model[:-1].transform(input_data)
+        explainer = shap.TreeExplainer(power_model.named_steps["model"])
+        shap_v = explainer(num_data)
+        shap_v.feature_names = power_model[:-1].get_feature_names_out()
+        fig, ax = plt.subplots(figsize=(8, 3.5))
+        shap.plots.bar(shap_v[0], max_display=8, show=False)
+        plt.tight_layout()
+        st.pyplot(fig, use_container_width=False)
+    except:
+        st.info("SHAP visualization unavailable.")
+else:
+    st.info("SHAP not installed in this environment.")
 
 # ---- 6. Section 2: Batch Prediction & Trends ---- #
 st.markdown("---")
@@ -181,7 +189,7 @@ if up_file:
         st.dataframe(b_df.head(10))
         
         # GLOBAL SHAP TRENDS (Beeswarm)
-        if st.checkbox("Show Global Influence Trends (Beeswarm)"):
+        if SHAP_AVAILABLE and st.checkbox("Show Global Influence Trends (Beeswarm)"):
             with st.spinner("Analyzing dataset trends..."):
                 sample = b_proc.head(100)
                 num_sample = power_model[:-1].transform(sample)
