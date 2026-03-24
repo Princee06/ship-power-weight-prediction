@@ -159,18 +159,18 @@ if st.button("Calculate Results"):
         st.write("**Feature Contribution (Why this prediction?)**")
         if SHAP_AVAILABLE:
             try:
-        num_data = power_model[:-1].transform(input_data)
-        explainer = shap.TreeExplainer(power_model.named_steps["model"])
-        shap_v = explainer(num_data)
-        shap_v.feature_names = power_model[:-1].get_feature_names_out()
-        fig, ax = plt.subplots(figsize=(8, 3.5))
-        shap.plots.bar(shap_v[0], max_display=8, show=False)
-        plt.tight_layout()
-        st.pyplot(fig, use_container_width=False)
-    except:
-        st.info("SHAP visualization unavailable.")
-else:
-    st.info("SHAP not installed in this environment.")
+                num_data = power_model[:-1].transform(input_data)
+                explainer = shap.TreeExplainer(power_model.named_steps["model"])
+                shap_v = explainer(num_data)
+                shap_v.feature_names = power_model[:-1].get_feature_names_out()
+                fig, ax = plt.subplots(figsize=(8, 3.5))
+                shap.plots.bar(shap_v[0], max_display=8, show=False)
+                plt.tight_layout()
+                st.pyplot(fig, use_container_width=False)
+            except:
+                st.info("SHAP visualization unavailable.")
+    else:
+            st.info("SHAP not installed in this environment.")
 
 # ---- 6. Section 2: Batch Prediction & Trends ---- #
 st.markdown("---")
