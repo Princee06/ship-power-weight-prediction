@@ -10,22 +10,18 @@ st.set_page_config(page_title="Ship Power & Weight Prediction", layout="wide")
 # ---- 1. Load Models Safely ---- #
 @st.cache_resource
 def load_models():
-    import joblib
+    st.write("Current working dir:", os.getcwd())
+    st.write("Files here:", os.listdir())
+    if not os.path.exists("saved_models/power_pipeline.pkl"):
+        st.error("❌ power_pipeline.pkl NOT FOUND")
+        st.stop()
+    if not os.path.exists("saved_models/weight_pipeline.pkl"):
+        st.error("❌ weight_pipeline.pkl NOT FOUND")
+        st.stop()
     p_model = joblib.load("saved_models/power_pipeline.pkl")
     w_model = joblib.load("saved_models/weight_pipeline.pkl")
     return p_model, w_model
 
-# Load models safely
-power_model, weight_model = None, None
-
-try:
-    power_model, weight_model = load_models()
-except Exception as e:
-    st.error("❌ Model loading failed")
-    st.exception(e)
-
-if power_model is None or weight_model is None:
-    st.stop()
 # ---- 2. Presets ---- #
 PRESETS = {
     "Tug": {"loa": 32.0, "breadth": 11.0, "depth": 5.0, "draft": 4.0, "speed": 12.0},
@@ -126,8 +122,8 @@ if st.button("Predict"):
     df = engineer_features(df)
     
     # ---- Predictions ---- #
-    p_val = power_model.predict(input_data)[0]
-    w_val = weight_model.predict(input_data)[0]
+    p = power_model.predict(df)[0]
+    w = weight_model.predict(df)[0]
     st.metric("Power (kW)", f"{p:,.0f}")
     st.metric("Weight (t)", f"{w:,.0f}")
     
