@@ -10,17 +10,21 @@ st.set_page_config(page_title="Ship Power & Weight Prediction", layout="wide")
 # ---- 1. Load Models Safely ---- #
 @st.cache_resource
 def load_models():
-    st.write("Current working dir:", os.getcwd())
-    st.write("Files here:", os.listdir())
-    if not os.path.exists("saved_models/power_pipeline.pkl"):
-        st.error("❌ power_pipeline.pkl NOT FOUND")
-        st.stop()
-    if not os.path.exists("saved_models/weight_pipeline.pkl"):
-        st.error("❌ weight_pipeline.pkl NOT FOUND")
-        st.stop()
     p_model = joblib.load("saved_models/power_pipeline.pkl")
     w_model = joblib.load("saved_models/weight_pipeline.pkl")
     return p_model, w_model
+
+power_model, weight_model = None, None
+
+try:
+    power_model, weight_model = load_models()
+except Exception as e:
+    st.error("❌ Model loading failed")
+    st.exception(e)
+
+# STOP if models not loaded
+if power_model is None or weight_model is None:
+    st.stop()
 
 # ---- 2. Presets ---- #
 PRESETS = {
@@ -33,6 +37,7 @@ PRESETS = {
 # ---- 3. Sanity Checks ---- #
 def run_sanity_checks(l, b, d, dr, s, t):
     errors, warnings = [], []
+
     if dr > d:
         errors.append("Draft cannot be deeper than Depth.")
     if l > 450:
@@ -41,10 +46,12 @@ def run_sanity_checks(l, b, d, dr, s, t):
         errors.append("Tugs rarely exceed 100m.")
     if t == "Bulk Carrier" and s > 18:
         warnings.append("Speed high for Bulk Carrier.")
+
     if b > 0:
-        lb = l/b
+        lb = l / b
         if lb < 3 or lb > 12:
             warnings.append(f"Unusual L/B ratio: {lb:.2f}")
+
     return errors, warnings
 
 # ---- 4. Feature Engineering ---- #
@@ -53,11 +60,13 @@ def engineer_features(df):
     df["B_D"] = df["breadth_m"] / df["depth_m"]
     df["L_D"] = df["loa_m"] / df["depth_m"]
     df["speed_length_ratio"] = df["service_speed_kn"] / (df["loa_m"] ** 0.5)
+
     df["year_bucket"] = pd.cut(
-        df["year_built"], bins=[0, 1999, 2009, 2019, 2035], 
+        df["year_built"],
+        bins=[0, 1999, 2009, 2019, 2035],
         labels=["old", "mid", "modern", "latest"]
     )
-    # default cols (VERY IMPORTANT for pipeline)
+
     default_cols = {
         "block_coefficient": 0.7,
         "fresh_water_capacity_m3": 100,
@@ -82,9 +91,11 @@ def engineer_features(df):
         "propulsion_type": "conventional",
         "fuel_capacity_m3": 300
     }
+
     for col, val in default_cols.items():
         if col not in df.columns:
             df[col] = val
+
     return df
 
 # ---- Sidebar ---- #
@@ -94,62 +105,100 @@ with st.sidebar:
 
 # ---- Main UI ---- #
 st.title("Ship Power & Weight Prediction")
+
 selected_type = st.selectbox(
-    "Ship Type", ["Select...", "OSV", "Tug", "Bulk Carrier", "Container"]
+    "Ship Type",
+    ["Select...", "OSV", "Tug", "Bulk Carrier", "Container"]
 )
-defaults = PRESETS.get(selected_type, {"loa":0,"breadth":0,"depth":0,"draft":0,"speed":0})
+
+defaults = PRESETS.get(selected_type, {"loa": 0, "breadth": 0, "depth": 0, "draft": 0, "speed": 0})
+
 col1, col2 = st.columns(2)
+
 with col1:
     loa = st.number_input("LOA", value=defaults["loa"])
     breadth = st.number_input("Breadth", value=defaults["breadth"])
     depth = st.number_input("Depth", value=defaults["depth"])
     draft = st.number_input("Draft", value=defaults["draft"])
+
 with col2:
     speed = st.number_input("Speed", value=defaults["speed"])
     year = st.number_input("Year", value=2024)
 
+# ---- Prediction ---- #
 if st.button("Predict"):
+
     errs, warns = run_sanity_checks(loa, breadth, depth, draft, speed, selected_type)
-    if errs:
-        for e in errs: st.error(e)
+
+    if selected_type == "Select...":
+        st.error("Please select ship type.")
         st.stop()
-    for w in warns: st.warning(w)
-    
-    df = pd.DataFrame([{
-        "loa_m": loa, "breadth_m": breadth, "depth_m": depth, "draft_m": draft,
-        "service_speed_kn": speed, "year_built": year, "ship_type": selected_type
+
+    if errs:
+        for e in errs:
+            st.error(e)
+        st.stop()
+
+    for w in warns:
+        st.warning(w)
+
+    raw_df = pd.DataFrame([{
+        "loa_m": loa,
+        "breadth_m": breadth,
+        "depth_m": depth,
+        "draft_m": draft,
+        "service_speed_kn": speed,
+        "year_built": year,
+        "ship_type": selected_type
     }])
-    df = engineer_features(df)
-    
+
+    input_data = engineer_features(raw_df)
+
     # ---- Predictions ---- #
-    p = power_model.predict(df)[0]
-    w = weight_model.predict(df)[0]
-    st.metric("Power (kW)", f"{p:,.0f}")
-    st.metric("Weight (t)", f"{w:,.0f}")
-    
-    # ---- SHAP (FIXED SAFE VERSION) ---- #
+    p_val = power_model.predict(input_data)[0]
+    w_val = weight_model.predict(input_data)[0]
+
+    st.metric("Power (kW)", f"{p_val:,.0f}")
+    st.metric("Weight (t)", f"{w_val:,.0f}")
+
+    # ---- SHAP ---- #
     st.markdown("### 🔍 Feature Contribution")
+
     try:
-        # transform only preprocessing part
-        X_transformed = power_model[:-1].transform(df)
+        X_transformed = power_model[:-1].transform(input_data)
         model = power_model.named_steps["model"]
+
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(X_transformed)
+
         fig, ax = plt.subplots()
         shap.summary_plot(
-            shap_values, X_transformed, show=False
+            shap_values,
+            X_transformed,
+            feature_names=power_model[:-1].get_feature_names_out(),
+            show=False
         )
         st.pyplot(fig)
-    except Exception as e:
-        st.warning("SHAP visualization not supported for this model.")
 
-# ---- Batch ---- #
+    except Exception:
+        st.warning("SHAP visualization not supported.")
+
+# ---- Batch Prediction ---- #
 st.markdown("---")
 file = st.file_uploader("Upload CSV")
+
 if file:
     data = pd.read_csv(file)
-    data = engineer_features(data)
-    data["power"] = power_model.predict(data)
-    data["weight"] = weight_model.predict(data)
+
+    processed = engineer_features(data.copy())
+
+    data["power"] = power_model.predict(processed)
+    data["weight"] = weight_model.predict(processed)
+
     st.dataframe(data.head())
-    st.download_button("Download", data.to_csv(index=False))
+
+    st.download_button(
+        "Download",
+        data.to_csv(index=False),
+        "predictions.csv"
+    )
