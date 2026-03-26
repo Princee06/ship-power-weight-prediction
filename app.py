@@ -3,7 +3,7 @@ import pandas as pd
 import joblib
 import shap
 import matplotlib.pyplot as plt
-import os
+import os  # Added missing import
 
 # ---- 0. Page Config ---- #
 st.set_page_config(page_title="Ship Power & Weight Prediction", layout="wide")
@@ -11,17 +11,24 @@ st.set_page_config(page_title="Ship Power & Weight Prediction", layout="wide")
 # ---- 1. Load Models Safely ---- #
 @st.cache_resource
 def load_models():
-    st.write("Current working dir:", os.getcwd())
-    st.write("Files here:", os.listdir())
+    # Check if directory exists, if not, streamlit might error out on listdir
+    if not os.path.exists("saved_models"):
+        st.error("❌ 'saved_models' directory NOT FOUND")
+        st.stop()
+        
     if not os.path.exists("saved_models/power_pipeline.pkl"):
         st.error("❌ power_pipeline.pkl NOT FOUND")
         st.stop()
     if not os.path.exists("saved_models/weight_pipeline.pkl"):
         st.error("❌ weight_pipeline.pkl NOT FOUND")
         st.stop()
+        
     p_model = joblib.load("saved_models/power_pipeline.pkl")
     w_model = joblib.load("saved_models/weight_pipeline.pkl")
     return p_model, w_model
+
+# Initialize the models for use in the script
+power_model, weight_model = load_models()
 
 # ---- 2. Presets ---- #
 PRESETS = {
@@ -58,7 +65,7 @@ def engineer_features(df):
         df["year_built"], bins=[0, 1999, 2009, 2019, 2035], 
         labels=["old", "mid", "modern", "latest"]
     )
-    # default cols (VERY IMPORTANT for pipeline)
+    
     default_cols = {
         "block_coefficient": 0.7,
         "fresh_water_capacity_m3": 100,
@@ -98,15 +105,17 @@ st.title("Ship Power & Weight Prediction")
 selected_type = st.selectbox(
     "Ship Type", ["Select...", "OSV", "Tug", "Bulk Carrier", "Container"]
 )
+
 defaults = PRESETS.get(selected_type, {"loa":0,"breadth":0,"depth":0,"draft":0,"speed":0})
+
 col1, col2 = st.columns(2)
 with col1:
-    loa = st.number_input("LOA", value=defaults["loa"])
-    breadth = st.number_input("Breadth", value=defaults["breadth"])
-    depth = st.number_input("Depth", value=defaults["depth"])
-    draft = st.number_input("Draft", value=defaults["draft"])
+    loa = st.number_input("LOA", value=float(defaults["loa"]))
+    breadth = st.number_input("Breadth", value=float(defaults["breadth"]))
+    depth = st.number_input("Depth", value=float(defaults["depth"]))
+    draft = st.number_input("Draft", value=float(defaults["draft"]))
 with col2:
-    speed = st.number_input("Speed", value=defaults["speed"])
+    speed = st.number_input("Speed", value=float(defaults["speed"]))
     year = st.number_input("Year", value=2024)
 
 if st.button("Predict"):
@@ -125,24 +134,23 @@ if st.button("Predict"):
     # ---- Predictions ---- #
     p = power_model.predict(df)[0]
     w = weight_model.predict(df)[0]
-    st.metric("Power (kW)", f"{p:,.0f}")
-    st.metric("Weight (t)", f"{w:,.0f}")
     
-    # ---- SHAP (FIXED SAFE VERSION) ---- #
+    c1, c2 = st.columns(2)
+    c1.metric("Power (kW)", f"{p:,.0f}")
+    c2.metric("Weight (t)", f"{w:,.0f}")
+    
+    # ---- SHAP ---- #
     st.markdown("### 🔍 Feature Contribution")
     try:
-        # transform only preprocessing part
         X_transformed = power_model[:-1].transform(df)
         model = power_model.named_steps["model"]
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(X_transformed)
         fig, ax = plt.subplots()
-        shap.summary_plot(
-            shap_values, X_transformed, show=False
-        )
+        shap.summary_plot(shap_values, X_transformed, show=False)
         st.pyplot(fig)
     except Exception as e:
-        st.warning("SHAP visualization not supported for this model.")
+        st.warning("SHAP visualization not supported for this model configuration.")
 
 # ---- Batch ---- #
 st.markdown("---")
@@ -153,4 +161,4 @@ if file:
     data["power"] = power_model.predict(data)
     data["weight"] = weight_model.predict(data)
     st.dataframe(data.head())
-    st.download_button("Download", data.to_csv(index=False))
+    st.download_button("Download Predictions", data.to_csv(index=False), "predictions.csv")
