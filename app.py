@@ -57,7 +57,37 @@ def run_sanity_checks(l, b, d, dr, s, t):
             warnings.append(f"Unusual L/B ratio: {lb:.2f}")
     return errors, warnings
 
-# ---- 4. Feature Engineering ---- #
+# ---- 4. Fuzzy Column Mapper ---- #
+def auto_map_columns(df):
+    mappings = {
+        "loa_m": ["loa", "length", "length_m", "loa_m", "len", "overall_length", "ship_length", "l"],
+        "breadth_m": ["breadth", "beam", "width", "breadth_m", "beam_m", "width_m", "b"],
+        "depth_m": ["depth", "depth_m", "moulded_depth", "hull_depth", "d"],
+        "draft_m": ["draft", "draught", "draft_m", "draught_m", "t"],
+        "service_speed_kn": ["speed", "service_speed", "speed_kn", "service_speed_kn",
+                              "service_speed_knots", "design_speed", "knots"],
+        "year_built": ["year", "year_built", "built", "build_year", "construction_year"],
+        "ship_type": ["type", "ship_type", "vessel_type", "category", "ship_class"],
+        "dwt_t": ["dwt", "dwt_t", "dwt_tonnes", "deadweight", "dead_weight"],
+        "payload_t": ["payload", "payload_t", "payload_tonnes", "cargo"],
+        "displacement_t": ["displacement", "displacement_t", "lightship",
+                            "lightship_weight", "lightship_weight_tonnes"],
+    }
+
+    rename_dict = {}
+    cols_lower = {c.lower().strip(): c for c in df.columns}
+
+    for standard, variants in mappings.items():
+        for variant in variants:
+            if variant.lower() in cols_lower:
+                original = cols_lower[variant.lower()]
+                if original not in rename_dict.values():
+                    rename_dict[original] = standard
+                break
+
+    return df.rename(columns=rename_dict)
+
+# ---- 5. Feature Engineering ---- #
 def engineer_features(df):
     df["L_B"] = df["loa_m"] / df["breadth_m"]
     df["B_D"] = df["breadth_m"] / df["depth_m"]
@@ -151,11 +181,33 @@ if st.button("Predict"):
 
 # ---- Batch ---- #
 st.markdown("---")
+st.subheader("Batch Prediction")
+st.caption("Upload any CSV — column names are auto-detected (e.g. length, Length_m, loa, LOA all work)")
 file = st.file_uploader("Upload CSV")
 if file:
     data = pd.read_csv(file)
+
+    # Show detected columns
+    st.write("📋 Detected columns:", list(data.columns))
+
+    # Auto map columns
+    data = auto_map_columns(data)
+
+    # Fill missing required columns with defaults
+    if "depth_m" not in data.columns:
+        data["depth_m"] = data["draft_m"] * 1.3 if "draft_m" in data.columns else 8.0
+    if "year_built" not in data.columns:
+        data["year_built"] = 2015
+    if "ship_type" not in data.columns:
+        data["ship_type"] = "OSV"
+    if "lpp_m" not in data.columns:
+        data["lpp_m"] = data["loa_m"] * 0.95 if "loa_m" in data.columns else 80.0
+
     data = engineer_features(data)
-    data["power"] = power_model.predict(data)
-    data["weight"] = weight_model.predict(data)
-    st.dataframe(data.head())
-    st.download_button("Download", data.to_csv(index=False))
+    data["predicted_power_kW"] = power_model.predict(data)
+    data["predicted_weight_t"] = weight_model.predict(data)
+
+    display_cols = [c for c in ["loa_m", "breadth_m", "draft_m", "service_speed_kn",
+                                 "predicted_power_kW", "predicted_weight_t"] if c in data.columns]
+    st.dataframe(data[display_cols])
+    st.download_button("⬇️ Download Results", data.to_csv(index=False), file_name="predictions.csv")
