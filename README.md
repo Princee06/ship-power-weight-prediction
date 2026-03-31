@@ -1,69 +1,77 @@
-Ship Power & Weight Prediction
+🚢 Ship Power & Weight Prediction
 
-Project Overview
+A machine learning web app that predicts Installed Power (kW) and Steel Weight (tonnes) of ships based on design parameters — built for naval engineers, ship designers, and estimators.
 
-This project predicts the Installed Power (kW) and Steel Weight (tons) of ships based on their design parameters. It leverages pre-trained ML pipelines for fast, accurate, and interactive predictions, suitable for ship designers, naval engineers, and estimators.
+🔴 Live Demo: ship-power-weight-prediction-pramodakibhad.streamlit.app
 
-Live Demo: https://ship-power-weight-prediction-pramodakibhad.streamlit.app/
+📌 Project Overview
+This project uses pre-trained Random Forest pipelines to predict ship power and weight from basic hull dimensions and speed. It is designed to assist early-stage ship design where quick, data-driven estimates are valuable.
 
-Key Features:
+✨ Key Features
 
-1.Single ship interactive prediction via Streamlit
-2.Batch predictions via CSV upload
-3.Derived ratios (L/B, B/D, Speed-Length) for quick reference
-4.SHAP-based feature contribution analysis
-5.Engineer validation mode for manual cross-checks
-6.Assumptions & Limitations panel for transparency
+🔢 Single ship prediction — interactive input form with ship type presets
+📂 Batch prediction — upload any CSV (column names are auto-detected)
+📐 Derived ratios — L/B, B/D, Speed-Length ratio computed automatically
+🔍 SHAP analysis — feature contribution visualization for explainability
+✅ Sanity checks — flags unusual inputs before prediction
+🔒 Engineer validation mode — manual cross-check panel
 
-Folder Structure:
+
+🧠 Model Details
+TargetAlgorithmNotesInstalled Power (kW)Random Forest RegressorTrained on multi-type vessel datasetSteel Weight (tonnes)Random Forest RegressorTrained on multi-type vessel dataset
+Input features: LOA, Breadth, Depth, Draft, Service Speed, Year Built, Ship Type
+Training range:
+
+LOA: 25 – 400 m
+Speed: 10 – 25 knots
+Ship types: OSV, Tug, Bulk Carrier, Container
+
+
+📁 Folder Structure
 SHIP_PW/
 │
-├─ saved_models/          # Pre-trained model pipelines & feature columns
+├─ saved_models/
 │   ├─ power_pipeline.pkl
-│   ├─ weight_pipeline.pkl
-│   └─ feature_columns.pkl
+│   └─ weight_pipeline.pkl
 │
-├─ app.py                 # Main Streamlit app
-├─ model_rebuild.ipynb    # Reference notebook for rebuilding models
-├─ requirements.txt       # Python dependencies
-└─ .gitignore             # Folders/files to exclude from git
+├─ app.py                  # Main Streamlit app
+├─ model_rebuild.ipynb     # Notebook for rebuilding models
+├─ requirements.txt        # Python dependencies
+└─ .gitignore
 
-Usage:
-1. Setup Environment
-# Clone the repo
-git clone <repo_url>
+🚀 Usage
+1. Clone & Setup
+bashgit clone <repo_url>
 cd SHIP_PW
 
-# Create virtual environment (Python 3.10+ recommended)
 python -m venv venv
-source venv/bin/activate   # macOS/Linux
-venv\Scripts\activate      # Windows
+source venv/bin/activate      # macOS/Linux
+venv\Scripts\activate         # Windows
 
-# Install dependencies
 pip install -r requirements.txt
-2. Run Streamlit App
-streamlit run app.py
+2. Run the App
+bashstreamlit run app.py
+3. Batch CSV Upload
+Upload any CSV with ship parameters — the app auto-detects column names like:
+length, Length_m, LOA, loa_m, beam, Beam_m, draft, Draft_m etc.
 
-Single Ship: Enter ship parameters and select ship type for interactive prediction.
+⚠️ Assumptions & Limitations
 
-Batch Mode: Upload CSV files with ship parameters for bulk predictions.
+Predictions assume standard steel hull construction
+Accuracy is highest within the training range (LOA: 25–400 m, Speed: 10–25 kts)
+Environmental factors (sea state, wind, currents) are not included
+Specialized vessels (submarines, yachts) may have reduced accuracy
+Missing secondary parameters are filled with sensible defaults
 
-Assumptions & Limitations:
-1.Predictions assume standard steel hull construction.
-2.Accuracy is highest for ships within the training range (LOA: 25–400 m, Speed: 10–25 kts).
-3.Environmental factors (sea state, wind, currents) are not included.
-4.Specialized vessels (submarines, yachts) may have reduced accuracy.
-5.Default values are applied for secondary parameters if missing.
 
-Dependencies:
-1.Python 3.10+
-2.pandas, joblib, shap, matplotlib, streamlit
-3.Install via: pip install -r requirements.txt
+🛠️ Dependencies
+streamlit==1.55.0
+pandas==2.3.3
+numpy==1.26.4
+scikit-learn==1.3.2
+joblib==1.5.3
+matplotlib==3.10.8
+shap==0.44.0
 
-Optional Features:
-1.Engineer validation mode to compare AI predictions with manual estimates.
-2.SHAP visualizations to analyze feature contributions.
-3.Feedback panel to log UX insights for continuous improvement.
-
-License:
-MIT License — feel free to reuse, modify, or integrate into your workflow.
+📄 License
+MIT License — free to reuse, modify, or integrate into your workflow.
