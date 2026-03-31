@@ -3,6 +3,7 @@ import pandas as pd
 import joblib
 import shap
 import matplotlib.pyplot as plt
+import os
 
 # ---- 0. Page Config ---- #
 st.set_page_config(page_title="Ship Power & Weight Prediction", layout="wide")
