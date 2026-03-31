@@ -2,7 +2,7 @@
 
 A machine learning web app that predicts Installed Power (kW) and Steel Weight (tonnes) of ships based on design parameters — built for naval engineers, ship designers, and estimators.
 
-🔴 Live Demo: ship-power-weight-prediction-pramodakibhad.streamlit.app
+🔴 Live Demo: https://ship-power-weight-prediction-pramodakibhad.streamlit.app/
 
 📌 Project Overview
 This project uses pre-trained Random Forest pipelines to predict ship power and weight from basic hull dimensions and speed. It is designed to assist early-stage ship design where quick, data-driven estimates are valuable.
