@@ -26,8 +26,6 @@ def load_models():
     w_model = joblib.load("saved_models/weight_pipeline.pkl")
 
     return p_model, w_model
-
-# ✅ FIX: Actually call the function to load the models
 power_model, weight_model = load_models()
 
 # ---- 2. Presets ---- #
