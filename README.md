@@ -4,6 +4,8 @@ Project Overview
 
 This project predicts the Installed Power (kW) and Steel Weight (tons) of ships based on their design parameters. It leverages pre-trained ML pipelines for fast, accurate, and interactive predictions, suitable for ship designers, naval engineers, and estimators.
 
+Live Demo: https://ship-power-weight-prediction-pramodakibhad.streamlit.app/
+
 Key Features:
 
 1.Single ship interactive prediction via Streamlit
