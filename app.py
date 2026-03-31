@@ -22,6 +22,7 @@ def load_models():
     p_model = joblib.load("saved_models/power_pipeline.pkl")
     w_model = joblib.load("saved_models/weight_pipeline.pkl")
     return p_model, w_model
+power_model, weight_model = load_models()
 
 # ---- 2. Presets ---- #
 PRESETS = {
