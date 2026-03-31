@@ -65,13 +65,16 @@ def auto_map_columns(df):
         "depth_m": ["depth", "depth_m", "moulded_depth", "hull_depth", "d"],
         "draft_m": ["draft", "draught", "draft_m", "draught_m", "t"],
         "service_speed_kn": ["speed", "service_speed", "speed_kn", "service_speed_kn",
-                              "service_speed_knots", "design_speed", "knots"],
+                              "service_speed_knots", "design_speed", "knots", "max_speed",
+                              "speed_knots", "vessel_speed", "trial_speed"],
         "year_built": ["year", "year_built", "built", "build_year", "construction_year"],
         "ship_type": ["type", "ship_type", "vessel_type", "category", "ship_class"],
         "dwt_t": ["dwt", "dwt_t", "dwt_tonnes", "deadweight", "dead_weight"],
         "payload_t": ["payload", "payload_t", "payload_tonnes", "cargo"],
         "displacement_t": ["displacement", "displacement_t", "lightship",
                             "lightship_weight", "lightship_weight_tonnes"],
+        "bollard_pull_t": ["bollard_pull", "bollard_pull_t", "bollard_pull_tonnes",
+                            "bp", "pull", "bollard"],
     }
 
     rename_dict = {}
@@ -87,7 +90,41 @@ def auto_map_columns(df):
 
     return df.rename(columns=rename_dict)
 
-# ---- 5. Feature Engineering ---- #
+# ---- 5. Smart Defaults for Missing Columns ---- #
+def fill_missing_columns(data):
+    missing_filled = []
+
+    if "service_speed_kn" not in data.columns:
+        # Estimate speed from ship type if available
+        def estimate_speed(row):
+            t = str(row.get("ship_type", "")).lower()
+            if "tug" in t: return 12.0
+            if "container" in t: return 22.0
+            if "bulk" in t: return 14.5
+            if "osv" in t or "offshore" in t: return 13.0
+            if "tanker" in t: return 14.0
+            return 13.0  # general default
+        data["service_speed_kn"] = data.apply(estimate_speed, axis=1)
+        missing_filled.append("service_speed_kn (estimated from ship type)")
+
+    if "depth_m" not in data.columns:
+        data["depth_m"] = data["draft_m"] * 1.3 if "draft_m" in data.columns else 8.0
+        missing_filled.append("depth_m (estimated as draft × 1.3)")
+
+    if "year_built" not in data.columns:
+        data["year_built"] = 2015
+        missing_filled.append("year_built (defaulted to 2015)")
+
+    if "ship_type" not in data.columns:
+        data["ship_type"] = "OSV"
+        missing_filled.append("ship_type (defaulted to OSV)")
+
+    if "lpp_m" not in data.columns:
+        data["lpp_m"] = data["loa_m"] * 0.95 if "loa_m" in data.columns else 80.0
+
+    return data, missing_filled
+
+# ---- 6. Feature Engineering ---- #
 def engineer_features(df):
     df["L_B"] = df["loa_m"] / df["breadth_m"]
     df["B_D"] = df["breadth_m"] / df["depth_m"]
@@ -193,15 +230,18 @@ if file:
     # Auto map columns
     data = auto_map_columns(data)
 
-    # Fill missing required columns with defaults
-    if "depth_m" not in data.columns:
-        data["depth_m"] = data["draft_m"] * 1.3 if "draft_m" in data.columns else 8.0
-    if "year_built" not in data.columns:
-        data["year_built"] = 2015
-    if "ship_type" not in data.columns:
-        data["ship_type"] = "OSV"
-    if "lpp_m" not in data.columns:
-        data["lpp_m"] = data["loa_m"] * 0.95 if "loa_m" in data.columns else 80.0
+    # Fill missing columns with smart defaults
+    data, missing_filled = fill_missing_columns(data)
+
+    if missing_filled:
+        st.info("ℹ️ Some columns were missing and filled with estimates:\n- " + "\n- ".join(missing_filled))
+
+    # Check that minimum required columns exist
+    required = ["loa_m", "breadth_m", "draft_m"]
+    missing_required = [c for c in required if c not in data.columns]
+    if missing_required:
+        st.error(f"❌ Cannot predict — missing critical columns: {missing_required}. Please add them to your CSV.")
+        st.stop()
 
     data = engineer_features(data)
     data["predicted_power_kW"] = power_model.predict(data)
