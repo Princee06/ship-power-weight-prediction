@@ -4,6 +4,7 @@ import joblib
 import shap
 import matplotlib.pyplot as plt
 import os
+import traceback
 
 # ---- 0. Page Config ---- #
 st.set_page_config(page_title="Ship Power & Weight Prediction", layout="wide")
@@ -11,14 +12,25 @@ st.set_page_config(page_title="Ship Power & Weight Prediction", layout="wide")
 # ---- 1. Load Models Safely ---- #
 @st.cache_resource
 def load_models():
-    import traceback
     try:
+        if not os.path.exists("saved_models/power_pipeline.pkl"):
+            st.error("❌ power_pipeline.pkl NOT FOUND")
+            st.stop()
+
+        if not os.path.exists("saved_models/weight_pipeline.pkl"):
+            st.error("❌ weight_pipeline.pkl NOT FOUND")
+            st.stop()
+
         p_model = joblib.load("saved_models/power_pipeline.pkl")
         w_model = joblib.load("saved_models/weight_pipeline.pkl")
         return p_model, w_model
+
     except Exception as e:
-        st.error(f"Full error: {traceback.format_exc()}")
+        st.error(f"Full error:\n{traceback.format_exc()}")
         st.stop()
+
+# ✅ FIX: Call the function to assign the models
+power_model, weight_model = load_models()
 
 # ---- 2. Presets ---- #
 PRESETS = {
@@ -55,7 +67,6 @@ def engineer_features(df):
         df["year_built"], bins=[0, 1999, 2009, 2019, 2035],
         labels=["old", "mid", "modern", "latest"]
     )
-    # default cols (VERY IMPORTANT for pipeline)
     default_cols = {
         "block_coefficient": 0.7,
         "fresh_water_capacity_m3": 100,
@@ -95,7 +106,7 @@ st.title("Ship Power & Weight Prediction")
 selected_type = st.selectbox(
     "Ship Type", ["Select...", "OSV", "Tug", "Bulk Carrier", "Container"]
 )
-defaults = PRESETS.get(selected_type, {"loa":0,"breadth":0,"depth":0,"draft":0,"speed":0})
+defaults = PRESETS.get(selected_type, {"loa": 0, "breadth": 0, "depth": 0, "draft": 0, "speed": 0})
 col1, col2 = st.columns(2)
 with col1:
     loa = st.number_input("LOA", value=defaults["loa"])
@@ -125,18 +136,15 @@ if st.button("Predict"):
     st.metric("Power (kW)", f"{p:,.0f}")
     st.metric("Weight (t)", f"{w:,.0f}")
 
-    # ---- SHAP (FIXED SAFE VERSION) ---- #
+    # ---- SHAP ---- #
     st.markdown("### 🔍 Feature Contribution")
     try:
-        # transform only preprocessing part
         X_transformed = power_model[:-1].transform(df)
         model = power_model.named_steps["model"]
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(X_transformed)
         fig, ax = plt.subplots()
-        shap.summary_plot(
-            shap_values, X_transformed, show=False
-        )
+        shap.summary_plot(shap_values, X_transformed, show=False)
         st.pyplot(fig)
     except Exception as e:
         st.warning("SHAP visualization not supported for this model.")
