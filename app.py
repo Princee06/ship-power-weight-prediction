@@ -26,6 +26,10 @@ def load_models():
     w_model = joblib.load("saved_models/weight_pipeline.pkl")
 
     return p_model, w_model
+
+# ✅ FIX: Actually call the function to load the models
+power_model, weight_model = load_models()
+
 # ---- 2. Presets ---- #
 PRESETS = {
     "Tug": {"loa": 32.0, "breadth": 11.0, "depth": 5.0, "draft": 4.0, "speed": 12.0},
@@ -58,7 +62,7 @@ def engineer_features(df):
     df["L_D"] = df["loa_m"] / df["depth_m"]
     df["speed_length_ratio"] = df["service_speed_kn"] / (df["loa_m"] ** 0.5)
     df["year_bucket"] = pd.cut(
-        df["year_built"], bins=[0, 1999, 2009, 2019, 2035], 
+        df["year_built"], bins=[0, 1999, 2009, 2019, 2035],
         labels=["old", "mid", "modern", "latest"]
     )
     # default cols (VERY IMPORTANT for pipeline)
@@ -118,19 +122,19 @@ if st.button("Predict"):
         for e in errs: st.error(e)
         st.stop()
     for w in warns: st.warning(w)
-    
+
     df = pd.DataFrame([{
         "loa_m": loa, "breadth_m": breadth, "depth_m": depth, "draft_m": draft,
         "service_speed_kn": speed, "year_built": year, "ship_type": selected_type
     }])
     df = engineer_features(df)
-    
+
     # ---- Predictions ---- #
     p = power_model.predict(df)[0]
     w = weight_model.predict(df)[0]
     st.metric("Power (kW)", f"{p:,.0f}")
     st.metric("Weight (t)", f"{w:,.0f}")
-    
+
     # ---- SHAP (FIXED SAFE VERSION) ---- #
     st.markdown("### 🔍 Feature Contribution")
     try:
